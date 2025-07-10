@@ -294,8 +294,8 @@
         const HIT_FLASH_DURATION = 200; // 피격 시 깜빡이는 시간 (밀리초)
         const MAX_HEALTH = 100; // 최대 체력
         const ATTACK_DAMAGE = 10; // 공격 데미지
-        const RECOIL_VELOCITY = 5; // 피격 시 반동 속도
-        const RECOIL_DURATION = 50; // 피격 시 반동 지속 시간 (밀리초)
+        const RECOIL_VELOCITY = 10; // 피격 시 반동 속도
+        const RECOIL_DURATION = 200; // 피격 시 반동 지속 시간 (밀리초)
         const ATTACK_EFFECT_DURATION = 300; // 공격 섬광 지속 시간 (밀리초)
         const HIT_EFFECT_DURATION = 300; // 피격 섬광 지속 시간 (밀리초)
         const ATTACK_RANGE = 120; // 공격 이펙트의 사거리
@@ -386,34 +386,38 @@
 
             // 공격 박스 반환 (공격 유형에 따라 위치 및 크기 조절)
             getAttackBox(attackType) {
-                // 이미지가 로드되지 않았다면 현재 width/height 값을 사용
                 const currentWidth = this.currentImage ? this.currentImage.width : this.width;
                 const currentHeight = this.currentImage ? this.currentImage.height : this.height;
 
-                let attackBox = { x: this.x, y: this.y, width: currentWidth, height: currentHeight };
+                let attackBoxWidth = ATTACK_RANGE;
+                let attackBoxHeight; // Will be set based on attackType
+
+                let attackBoxX;
                 const playerDirection = this.isPlayer1 ? 1 : -1; // Player 1 attacks right, Player 2 attacks left
+
+                if (playerDirection === 1) { // Attacking right
+                    attackBoxX = this.x + currentWidth;
+                } else { // Attacking left
+                    attackBoxX = this.x - ATTACK_RANGE; // Attack box starts ATTACK_RANGE to the left of the player
+                }
+
+                let attackBoxY;
 
                 switch (attackType) {
                     case 'top':
-                        attackBox.x += playerDirection * (currentWidth / 2);
-                        attackBox.y -= currentHeight / 2;
-                        attackBox.width = currentWidth / 2;
-                        attackBox.height = currentHeight / 2;
+                        attackBoxY = this.y;
+                        attackBoxHeight = currentHeight / 3;
                         break;
                     case 'mid':
-                        attackBox.x += playerDirection * (currentWidth / 2);
-                        attackBox.y += currentHeight / 4;
-                        attackBox.width = currentWidth / 2;
-                        attackBox.height = currentHeight / 2;
+                        attackBoxY = this.y + currentHeight / 3;
+                        attackBoxHeight = currentHeight / 3;
                         break;
                     case 'low':
-                        attackBox.x += playerDirection * (currentWidth / 2);
-                        attackBox.y += currentHeight * 0.75;
-                        attackBox.width = currentWidth / 2;
-                        attackBox.height = currentHeight / 4;
+                        attackBoxY = this.y + currentHeight * 2 / 3;
+                        attackBoxHeight = currentHeight / 3;
                         break;
                 }
-                return attackBox;
+                return { x: attackBoxX, y: attackBoxY, width: attackBoxWidth, height: attackBoxHeight };
             }
 
             // 업데이트 메서드 (위치, 중력, 애니메이션 등)
@@ -529,42 +533,11 @@
                     ctx.globalAlpha = effectAlpha;
                     ctx.fillStyle = 'rgba(255, 255, 0, 1)'; // 노란색
 
-                    const playerCenterY = this.y + this.height / 2;
-                    const playerDirection = this.isPlayer1 ? 1 : -1; // Player 1 attacks right, Player 2 attacks left
-                    
-                    // 공격 이펙트의 너비는 ATTACK_RANGE의 절반부터 시작하여 ATTACK_RANGE까지 확장
-                    const currentEffectWidth = ATTACK_RANGE * (0.5 + 0.5 * progress); 
-                    const effectHeight = this.height * 0.2; // 이펙트의 높이는 일정하게 유지
+                    const attackBox = this.getAttackBox(this.currentAttackType); // 실제 공격 박스 가져오기
 
-                    switch (this.currentAttackType) {
-                        case 'top':
-                            // 상단 공격: 위로 찌르는 듯한 모션
-                            ctx.fillRect(
-                                this.x + this.width / 2 + (playerDirection === 1 ? 0 : -currentEffectWidth),
-                                this.y - (this.height * 0.1) - (ATTACK_RANGE * 0.5 * progress), // 위로 올라가는 효과
-                                currentEffectWidth,
-                                effectHeight
-                            );
-                            break;
-                        case 'mid':
-                            // 중단 공격: 앞으로 뻗는 모션
-                            ctx.fillRect(
-                                this.x + this.width / 2 + (playerDirection === 1 ? 0 : -currentEffectWidth),
-                                playerCenterY - effectHeight / 2, // 중앙 높이
-                                currentEffectWidth,
-                                effectHeight
-                            );
-                            break;
-                        case 'low':
-                            // 하단 공격: 아래로 찌르는 듯한 모션
-                            ctx.fillRect(
-                                this.x + this.width / 2 + (playerDirection === 1 ? 0 : -currentEffectWidth),
-                                this.y + this.height * 0.8 + (ATTACK_RANGE * 0.5 * progress), // 아래로 내려가는 효과
-                                currentEffectWidth,
-                                effectHeight
-                            );
-                            break;
-                    }
+                    // 공격 이펙트를 실제 공격 박스 영역에 맞춰 그립니다.
+                    ctx.fillRect(attackBox.x, attackBox.y, attackBox.width, attackBox.height);
+
                     ctx.globalAlpha = 1; // 알파값 초기화
                 }
 
@@ -781,7 +754,7 @@
         // 충돌 감지 함수 (AABB)
         function checkCollision(rect1, rect2) {
             return rect1.x < rect2.x + rect2.width &&
-                   rect1.x + rect1.width > rect2.x &&
+                   rect1.x + rect1.width >= rect2.x &&
                    rect1.y < rect2.y + rect2.height &&
                    rect1.y + rect1.height >= rect2.y; // FIX: Changed > to >= for vertical collision
         }
@@ -901,6 +874,24 @@
             // 플레이어 업데이트
             player1.update();
             player2.update();
+
+            // 플레이어 간 충돌 처리
+            const player1Hitbox = player1.getHitbox();
+            const player2Hitbox = player2.getHitbox();
+
+            if (checkCollision(player1Hitbox, player2Hitbox)) {
+                // 충돌 시 서로 밀어내기
+                const overlap = (player1.x + player1.width) - player2.x;
+                if (player1.x < player2.x) {
+                    // Player 1 is to the left of Player 2
+                    player1.x -= overlap / 2;
+                    player2.x += overlap / 2;
+                } else {
+                    // Player 2 is to the left of Player 1
+                    player1.x += overlap / 2;
+                    player2.x -= overlap / 2;
+                }
+            }
 
             // 플레이어 그리기 (항상 플레이어 2가 앞에 그려지도록 순서 조정)
             // 즉, 더 오른쪽에 있는 플레이어가 위에 그려지도록 조정
