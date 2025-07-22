@@ -835,7 +835,11 @@
                         let damageDealt = false;
                         let message = '';
 
-                        if (defender.isCrouching) {
+                        // 경직 상태에서는 방어 불가
+                        if (defender.isStunned) {
+                            message = '피격!';
+                            damageDealt = true;
+                        } else if (defender.isCrouching) {
                             // 앉은 자세 방어 로직
                             if (attackType === 'top') {
                                 message = '회피했습니다!';
@@ -858,12 +862,16 @@
                         if (damageDealt) {
                             defender.takeDamage(ATTACK_DAMAGE, attacker.x, attackType); // 공격자의 x 위치와 공격 유형 전달
                         } else {
-                            // 공격이 막혔을 경우 공격자에게 경직 적용
-                            if (message === '막았습니다!') {
+                            // 공격이 막혔거나 회피되었을 경우 공격자에게 경직 적용
+                            if (message === '막았습니다!' || message === '회피했습니다!') {
                                 attacker.applyStun(ATTACKER_STUN_DURATION);
                             }
                         }
                         displayGameMessage(message);
+                    } else {
+                        // 공격이 빗나갔을 때 (회피)
+                        displayGameMessage('회피했습니다!');
+                        attacker.applyStun(ATTACKER_STUN_DURATION);
                     }
                 }
             }
